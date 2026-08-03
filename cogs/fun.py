@@ -115,7 +115,7 @@ class Fun(commands.Cog):
             await ctx.send(f"You lose! {computer_choice} beats {user_choice}.")
 
 
-    @commands.hybrid_command(name="Balance", aliases=["bal"], description="Check your KC balance")
+    @commands.hybrid_command(name="balance", aliases=["bal"], description="Check your KC balance")
     async def balance(self, ctx):
         user_id = str(ctx.author.id)
         cursor.execute("SELECT kc FROM Bank WHERE user_id = ?", (user_id,))
