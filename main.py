@@ -98,7 +98,7 @@ async def on_ready():
     
     steps = [
         ("Syncing slash commands...", bot.tree.sync()),
-        ("Setting status...", await bot.change_presence(activity=discord.Game(name="Rebranding soon. . ."))),
+        ("Setting status...", await bot.change_presence(activity=discord.Game(name="With the souls of the damned (<@!1300697545181499423>)"))),
         ("Finalizing startup...", None),
     ]
 
