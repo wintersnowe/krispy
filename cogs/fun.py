@@ -82,7 +82,29 @@ class Fun(commands.Cog):
         
             await ctx.send(f"⏰ You've already claimed your prize! Next available in **{hours}h {minutes}m**.\nCurrent streak: {claims}")
 
-
+    @commands.hybrid_command(name="rps", description="Play rock paper scissors")
+    async def rps(self, ctx, user_choice: str):
+        user_choice = user_choice.lower()
+        choices = ["rock", "paper", "scissors"]
+        win = 15
+        if user_choice not in choices:
+            await ctx.send("Invalid choice! Please choose rock, paper, or scissors.")
+            return
+        computer_choice = random.choice(choices)
+        if user_choice == computer_choice:
+            await ctx.send(f"It's a tie! You both chose {user_choice}.")
+        elif (user_choice == "rock" and computer_choice == "scissors") or \
+            (user_choice == "paper" and computer_choice == "rock") or \
+            (user_choice == "scissors" and computer_choice == "paper"):
+            await ctx.send(f"You win! {user_choice} beats {computer_choice}.")
+            user_data = cursor.fetchone()
+            new_balance = user_data[0] + win
+            cursor.execute("UPDATE Bank SET kc = ? WHERE user_id = ?", (new_balance, str(ctx.author.id)))
+            database.commit()
+            if user_data is None:
+                await ctx.send("Please use /prize or $prize to register in the bank first.")
+        else:
+            await ctx.send(f"You lose! {computer_choice} beats {user_choice}.")
 
 async def setup(bot):
     await bot.add_cog(Fun(bot))
