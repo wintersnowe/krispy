@@ -12,7 +12,8 @@ from typing import Optional
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-database = sqlite3.connect("Krispy.db")
+DB = "Krispy.db"
+database = sqlite3.connect(DB)
 cursor = database.cursor()
 
 
@@ -82,11 +83,17 @@ class Krispy(commands.Bot):
                                 await animator.print_loading_step(f"Failed to load {import_path}", "FAILED", "red")
                                 print(f"Error loading {import_path}: {e}")
 
+
+
 bot = Krispy(command_prefix="$", intents=intents)
 
 @bot.event
 async def on_ready():
     animator = BootAnimator()
+    database = sqlite3.connect(DB)
+    cursor = database.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS Bank (user_id TEXT PRIMARY KEY, kc INTEGER DEFAULT 0, streak INTEGER DEFAULT 0, bi_daily_claimed TIMESTAMP, bi_daily_available TIMESTAMP, claims INTEGER DEFAULT 0)''')
+    database.commit()
     
     
     steps = [
