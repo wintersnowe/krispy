@@ -159,7 +159,7 @@ class HighLow(commands.Cog):
                 )
                 result_embed.add_field(
                     name='Reward',
-                    value=f'+{reward} dabloons{" (JACKPOT!)" if choice == "stand" else f" (x{self.streaks[user_id]["multiplier"]} multiplier)"}',
+                    value=f'You earned **{reward} dabloons**! (Base: {base_reward} x Multiplier: {self.streaks[user_id]["multiplier"]})' if choice != "stand" else f'You earned **{reward} dabloons** for hitting the jackpot!',
                     inline=False
                 )
                 if choice == "stand":
