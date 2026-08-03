@@ -106,5 +106,16 @@ class Fun(commands.Cog):
         else:
             await ctx.send(f"You lose! {computer_choice} beats {user_choice}.")
 
+
+    @commands.hybrid_command(name="Balance", aliases=["bal"], description="Check your KC balance")
+    async def balance(self, ctx):
+        user_id = str(ctx.author.id)
+        cursor.execute("SELECT kc FROM Bank WHERE user_id = ?", (user_id,))
+        user_data = cursor.fetchone()
+        if user_data is None:
+            await ctx.send("You are not registered in the bank. Use /prize or $prize to register.")
+        else:
+            balance = user_data[0]
+            await ctx.send(f"💰 Your current KC balance is: **{balance} KC**.")
 async def setup(bot):
     await bot.add_cog(Fun(bot))
