@@ -91,7 +91,7 @@ class HighLow(commands.Cog):
         )
         embed.add_field(
             name='Stand Jackpot',
-            value='Guess "Stand" correctly to win **5000 dabloons!**',
+            value='Guess "Stand" correctly to win **5000 Krispy Coins!**',
             inline=False
         )
         
@@ -159,7 +159,7 @@ class HighLow(commands.Cog):
                 )
                 result_embed.add_field(
                     name='Reward',
-                    value=f'You earned **{reward} dabloons**! (Base: {base_reward} x Multiplier: {self.streaks[user_id]["multiplier"]})' if choice != "stand" else f'You earned **{reward} dabloons** for hitting the jackpot!',
+                    value=f'You earned **{reward} Krispy Coins**! (Base: {base_reward} x Multiplier: {self.streaks[user_id]["multiplier"]})' if choice != "stand" else f'You earned **{reward} Krispy Coins** for hitting the jackpot!',
                     inline=False
                 )
                 if choice == "stand":
@@ -182,7 +182,7 @@ class HighLow(commands.Cog):
             
             # Show current balance
             balance = self._get_balance(user_id)
-            result_embed.set_footer(text=f'Current balance: {balance} dabloons')
+            result_embed.set_footer(text=f'Current balance: {balance} Krispy Coins')
             
             # Disable buttons and update message
             higher_button.disabled = True
