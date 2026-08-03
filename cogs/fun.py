@@ -97,12 +97,20 @@ class Fun(commands.Cog):
             (user_choice == "paper" and computer_choice == "rock") or \
             (user_choice == "scissors" and computer_choice == "paper"):
             await ctx.send(f"You win! {user_choice} beats {computer_choice}.")
-            user_data = cursor.fetchone()
-            new_balance = user_data[0] + win
-            cursor.execute("UPDATE Bank SET kc = ? WHERE user_id = ?", (new_balance, str(ctx.author.id)))
-            database.commit()
-            if user_data is None:
-                await ctx.send("Please use /prize or $prize to register in the bank first.")
+            try:
+                database = sqlite3.connect("Krispy.db")
+                cursor = database.cursor()
+                cursor.execute("SELECT kc FROM Bank WHERE user_id = ?", (str(ctx.author.id),))
+                user_data = cursor.fetchone()
+                new_balance = user_data[0] + win
+                cursor.execute("UPDATE Bank SET kc = ? WHERE user_id = ?", (new_balance, str(ctx.author.id)))
+                database.commit()
+            except Exception as e:
+                await ctx.send(f"An error occurred while updating your balance: {e}")
+            except:
+                if user_data is None:
+                    await ctx.send("Please use /prize or $prize to register in the bank first.")
+                    return
         else:
             await ctx.send(f"You lose! {computer_choice} beats {user_choice}.")
 
