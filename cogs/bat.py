@@ -18,7 +18,7 @@ class BatCog(commands.Cog):
 
     async def init_db(self):
         """Creates the database table if it doesn't exist."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with sqlite3.connect(self.db_path) as db:
             await db.execute('''
                 CREATE TABLE IF NOT EXISTS bat_users (
                     user_id INTEGER NOT NULL,
