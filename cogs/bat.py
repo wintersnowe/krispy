@@ -32,7 +32,7 @@ class BatCog(commands.Cog):
     # ---------- Database Helpers ----------
     async def is_enabled(self, user_id: int, guild_id: int) -> bool:
         """Checks if a user has bat chittering enabled in a specific guild."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with sqlite3.connect(self.db_path) as db:
             async with db.execute(
                 'SELECT enabled FROM bat_users WHERE user_id = ? AND guild_id = ?',
                 (user_id, guild_id)
@@ -45,7 +45,7 @@ class BatCog(commands.Cog):
         Toggles the user's bat status in the guild.
         Returns the NEW state (True = enabled, False = disabled).
         """
-        async with aiosqlite.connect(self.db_path) as db:
+        async with sqlite3.connect(self.db_path) as db:
             # Check current state
             async with db.execute(
                 'SELECT enabled FROM bat_users WHERE user_id = ? AND guild_id = ?',
