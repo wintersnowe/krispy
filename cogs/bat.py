@@ -145,6 +145,12 @@ class BatUwuCog(commands.Cog):
         uwu_on = await self.is_enabled(user_id, guild_id, "uwu")
         if not bat_on and not uwu_on:
             return
+        content = message.content.strip()
+        if not content:
+            return
+        link_pattern = re.compile(r'^https?://\S+$')
+        if link_pattern.match(content):
+            return
 
         # Start with original content
         altered_text = message.content
