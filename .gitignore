@@ -1,3 +1,5 @@
 .env
 commit.bat
 Krispy.db
+*.db
+*__pycache__
