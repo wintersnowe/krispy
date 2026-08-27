@@ -5,6 +5,22 @@ import random
 import aiosqlite
 import re
 
+# ---------- Button View ----------
+class BarkView(discord.ui.View):
+    def __init__(self, original_text: str):
+        super().__init__()
+        self.original_text = original_text
+
+    @discord.ui.button(label="Show Original", style=discord.ButtonStyle.primary)
+    async def show_original(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Truncate if too long (Discord ephemeral limit ~2000 chars)
+        text = self.original_text
+        if len(text) > 1900:
+            text = text[:1900] + "... (truncated)"
+        await interaction.response.send_message(f"**Original message:**\n{text}", ephemeral=True)
+
+
+# ---------- Cog ----------
 class BarkCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -60,48 +76,20 @@ class BarkCog(commands.Cog):
             await db.commit()
             return bool(new_state)
 
-    # ---------- Bark Transformer ----------
-    def add_barks(self, text: str) -> str:
-        """Insert dog-like sounds and replace some words."""
+    # ---------- Bark Generator (ONLY barks) ----------
+    def generate_bark_only(self, text: str) -> str:
+        """Converts any text into a sequence of random bark sounds only."""
         if not text:
             return "*silent puppy stare*"
 
-        bark_sounds = [
-            " *woof*", " *bark*", " *arf*", " *grrr*",
-            " *ruff*", " *yip*", " *bow-wow*", " *awoo*"
-        ]
-
-        # Replace some common words with "bark-like" versions (optional)
-        replacements = {
-            r'\b(hello|hi|hey)\b': 'woof',
-            r'\b(yes|yeah|yep)\b': 'arf',
-            r'\b(no|nope)\b': 'grrr',
-            r'\b(good|great|awesome)\b': 'ruff',
-            r'\b(love|like)\b': 'awoo'
-        }
-        for pattern, repl in replacements.items():
-            text = re.sub(pattern, repl, text, flags=re.IGNORECASE)
-
+        bark_sounds = ["woof", "bark", "arf", "grrr", "ruff", "yip", "bow-wow", "awoo"]
         words = text.split()
         if not words:
-            return text
+            return "*silent puppy stare*"
 
-        new_words = []
-        counter = 0
-
-        for word in words:
-            new_words.append(word)
-            counter += 1
-
-            if counter >= random.randint(3, 6):
-                if random.random() < 0.6:
-                    new_words.append(random.choice(bark_sounds))
-                counter = 0
-
-        if random.random() < 0.35:
-            new_words.append(random.choice(bark_sounds))
-
-        return " ".join(new_words)
+        # One bark per word in the original message
+        barks = [random.choice(bark_sounds) for _ in words]
+        return " ".join(barks)
 
     # ---------- Webhook Manager ----------
     async def get_or_create_webhook(self, channel: discord.TextChannel):
@@ -145,9 +133,11 @@ class BarkCog(commands.Cog):
         if not await self.is_enabled(message.author.id, message.guild.id):
             return
 
-        # 3. Transform and send via webhook
+        # 3. Save original text, generate bark-only, send with button
+        original_text = content
+        bark_text = self.generate_bark_only(original_text)
+
         webhook = await self.get_or_create_webhook(message.channel)
-        altered_text = self.add_barks(content)
 
         # Delete original
         try:
@@ -155,12 +145,13 @@ class BarkCog(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             pass
 
-        # Send altered message
+        # Send bark message with the "Show Original" button
         await webhook.send(
-            content=altered_text,
+            content=bark_text,
             username=message.author.display_name,
             avatar_url=message.author.display_avatar.url,
-            allowed_mentions=discord.AllowedMentions.none()
+            allowed_mentions=discord.AllowedMentions.none(),
+            view=BarkView(original_text)   # <-- attach the button
         )
 
     # ---------- Slash Command ----------
