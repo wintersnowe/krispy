@@ -90,11 +90,11 @@ class BatUwuCog(commands.Cog):
         for word in words:
             new_words.append(word)
             counter += 1
-            if counter >= random.randint(3, 6):
-                if random.random() < 0.65:
+            if counter >= random.randint(2, 6):
+                if random.random() < 0.75:
                     new_words.append(random.choice(chitters))
                 counter = 0
-        if random.random() < 0.4:
+        if random.random() < 0.45:
             new_words.append(random.choice(chitters))
         return " ".join(new_words)
 
@@ -108,7 +108,7 @@ class BatUwuCog(commands.Cog):
         text = re.sub(r'n([aeiou])', r'ny\1', text)
         text = re.sub(r'N([aeiou])', r'Ny\1', text)
         # Add occasional uwu
-        if random.random() < 0.7:
+        if random.random() < 0.35:
             text += " uwu"
         return text
 
