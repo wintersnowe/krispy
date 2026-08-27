@@ -36,7 +36,7 @@ class BarkCog(commands.Cog):
                     user_id INTEGER NOT NULL,
                     guild_id INTEGER NOT NULL,
                     enabled INTEGER NOT NULL DEFAULT 0,
-                    show_original INTEGER NOT NULL DEFAULT 1,   -- 1 = show button, 0 = hide
+                    show_original INTEGER NOT NULL DEFAULT 1,
                     PRIMARY KEY (user_id, guild_id)
                 )
             ''')
@@ -53,21 +53,15 @@ class BarkCog(commands.Cog):
                 return row is not None and bool(row[0])
 
     async def get_show_original(self, user_id: int, guild_id: int) -> bool:
-        """Return True if the user wants to show the button, default True."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 'SELECT show_original FROM bark_users WHERE user_id = ? AND guild_id = ?',
                 (user_id, guild_id)
             ) as cursor:
                 row = await cursor.fetchone()
-                # If row is None (user not inserted yet), default to True
                 return row is None or bool(row[0])
 
     async def toggle_user(self, user_id: int, guild_id: int, show_original: bool = True) -> bool:
-        """
-        Toggle the user's enabled state. Also updates show_original if the user exists.
-        Returns the NEW enabled state (True = enabled, False = disabled).
-        """
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 'SELECT enabled, show_original FROM bark_users WHERE user_id = ? AND guild_id = ?',
@@ -76,16 +70,13 @@ class BarkCog(commands.Cog):
                 row = await cursor.fetchone()
 
             if row is None:
-                # New user – insert with enabled=1 and given show_original
                 new_enabled = 1
                 await db.execute(
                     'INSERT INTO bark_users (user_id, guild_id, enabled, show_original) VALUES (?, ?, ?, ?)',
                     (user_id, guild_id, new_enabled, 1 if show_original else 0)
                 )
             else:
-                # Toggle enabled
                 new_enabled = 1 - row[0]
-                # Also update show_original (even if it's the same, it's fine)
                 await db.execute(
                     'UPDATE bark_users SET enabled = ?, show_original = ? WHERE user_id = ? AND guild_id = ?',
                     (new_enabled, 1 if show_original else 0, user_id, guild_id)
@@ -96,7 +87,6 @@ class BarkCog(commands.Cog):
 
     # ---------- Bark Generator (ONLY barks) ----------
     def generate_bark_only(self, text: str) -> str:
-        """Converts any text into a sequence of random bark sounds only."""
         if not text:
             return "*silent puppy stare*"
 
@@ -105,7 +95,6 @@ class BarkCog(commands.Cog):
         if not words:
             return "*silent puppy stare*"
 
-        # One bark per word in the original message
         barks = [random.choice(bark_sounds) for _ in words]
         return " ".join(barks)
 
@@ -139,7 +128,6 @@ class BarkCog(commands.Cog):
         if message.webhook_id is not None:
             return
 
-        # Ignore messages with no text or just a link
         content = message.content.strip()
         if not content:
             return
@@ -166,16 +154,23 @@ class BarkCog(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             pass
 
-        # Attach button only if the user wants it
-        view = BarkView(original_text) if show_original else None
-
-        await webhook.send(
-            content=bark_text,
-            username=message.author.display_name,
-            avatar_url=message.author.display_avatar.url,
-            allowed_mentions=discord.AllowedMentions.none(),
-            view=view   # None = no button
-        )
+        # ---------- FIX: conditionally add the view ----------
+        if show_original:
+            await webhook.send(
+                content=bark_text,
+                username=message.author.display_name,
+                avatar_url=message.author.display_avatar.url,
+                allowed_mentions=discord.AllowedMentions.none(),
+                view=BarkView(original_text)   # only pass view if True
+            )
+        else:
+            await webhook.send(
+                content=bark_text,
+                username=message.author.display_name,
+                avatar_url=message.author.display_avatar.url,
+                allowed_mentions=discord.AllowedMentions.none()
+                # view is omitted entirely
+            )
 
     # ---------- Slash Command ----------
     @app_commands.command(name="bark", description="Toggle bark mode on a user's messages")
@@ -192,12 +187,9 @@ class BarkCog(commands.Cog):
             await interaction.response.send_message("🐶 I can't bark at myself!", ephemeral=True)
             return
 
-        # Toggle the user and store their show_original preference
         new_state = await self.toggle_user(user.id, interaction.guild_id, show_original)
         status = "enabled" if new_state else "disabled"
         emoji = "🐕" if new_state else "🔇"
-
-        # Show what the preference was set to
         button_status = "with" if show_original else "without"
 
         await interaction.response.send_message(
