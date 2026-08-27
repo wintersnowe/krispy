@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import random
-import aiosqlite          # <-- added
-import asyncio
+import aiosqlite
+import re
 
-class BatCog(commands.Cog):
+class BatUwuCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db_path = "Krispy.db"
@@ -17,79 +17,102 @@ class BatCog(commands.Cog):
     async def init_db(self):
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute('''
-                CREATE TABLE IF NOT EXISTS bat_users (
+                CREATE TABLE IF NOT EXISTS user_modes (
                     user_id INTEGER NOT NULL,
                     guild_id INTEGER NOT NULL,
-                    enabled INTEGER NOT NULL DEFAULT 0,
+                    bat_enabled INTEGER NOT NULL DEFAULT 0,
+                    uwu_enabled INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (user_id, guild_id)
                 )
             ''')
             await db.commit()
 
-    async def is_enabled(self, user_id: int, guild_id: int) -> bool:
+    # ---------- Database Helpers ----------
+    async def is_enabled(self, user_id: int, guild_id: int, mode: str) -> bool:
+        """Check if a specific mode is enabled for the user in this guild."""
         async with aiosqlite.connect(self.db_path) as db:
+            column = "bat_enabled" if mode == "bat" else "uwu_enabled"
             async with db.execute(
-                'SELECT enabled FROM bat_users WHERE user_id = ? AND guild_id = ?',
+                f'SELECT {column} FROM user_modes WHERE user_id = ? AND guild_id = ?',
                 (user_id, guild_id)
             ) as cursor:
                 row = await cursor.fetchone()
                 return row is not None and bool(row[0])
 
-    async def toggle_user(self, user_id: int, guild_id: int) -> bool:
+    async def toggle_user(self, user_id: int, guild_id: int, mode: str) -> bool:
+        """Toggle the specified mode and return the new state."""
+        column = "bat_enabled" if mode == "bat" else "uwu_enabled"
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                'SELECT enabled FROM bat_users WHERE user_id = ? AND guild_id = ?',
+                f'SELECT {column} FROM user_modes WHERE user_id = ? AND guild_id = ?',
                 (user_id, guild_id)
             ) as cursor:
                 row = await cursor.fetchone()
 
             if row is None:
+                # Insert with this mode enabled, others default 0
+                if mode == "bat":
+                    await db.execute(
+                        'INSERT INTO user_modes (user_id, guild_id, bat_enabled, uwu_enabled) VALUES (?, ?, 1, 0)',
+                        (user_id, guild_id)
+                    )
+                else:
+                    await db.execute(
+                        'INSERT INTO user_modes (user_id, guild_id, bat_enabled, uwu_enabled) VALUES (?, ?, 0, 1)',
+                        (user_id, guild_id)
+                    )
                 new_state = 1
-                await db.execute(
-                    'INSERT INTO bat_users (user_id, guild_id, enabled) VALUES (?, ?, ?)',
-                    (user_id, guild_id, new_state)
-                )
             else:
                 new_state = 1 - row[0]
                 await db.execute(
-                    'UPDATE bat_users SET enabled = ? WHERE user_id = ? AND guild_id = ?',
+                    f'UPDATE user_modes SET {column} = ? WHERE user_id = ? AND guild_id = ?',
                     (new_state, user_id, guild_id)
                 )
 
             await db.commit()
             return bool(new_state)
 
+    # ---------- Text Transformers ----------
     def add_bat_chitters(self, text: str) -> str:
+        """Insert bat sounds randomly."""
         if not text:
             return "*inaudible bat screeching*"
-
         chitters = [
             " *chitter*", " *squeak*", " *eek*",
             " *flap flap*", " *screech*", " *chirp*",
             " *rustle*", " *click*", " *skree*"
         ]
-
         words = text.split()
         if not words:
             return text
-
         new_words = []
         counter = 0
-
         for word in words:
             new_words.append(word)
             counter += 1
-
             if counter >= random.randint(3, 6):
                 if random.random() < 0.65:
                     new_words.append(random.choice(chitters))
                 counter = 0
-
         if random.random() < 0.4:
             new_words.append(random.choice(chitters))
-
         return " ".join(new_words)
 
+    def uwuify_text(self, text: str) -> str:
+        """A simple uwu transformation (you can make it fancier)."""
+        if not text:
+            return "*uwu*"
+        # Replace some patterns
+        text = re.sub(r'[rl]', 'w', text)
+        text = re.sub(r'[RL]', 'W', text)
+        text = re.sub(r'n([aeiou])', r'ny\1', text)
+        text = re.sub(r'N([aeiou])', r'Ny\1', text)
+        # Add occasional uwu
+        if random.random() < 0.3:
+            text += " uwu"
+        return text
+
+    # ---------- Webhook Manager ----------
     async def get_or_create_webhook(self, channel: discord.TextChannel):
         if channel.id in self.webhook_cache:
             try:
@@ -108,26 +131,45 @@ class BatCog(commands.Cog):
         self.webhook_cache[channel.id] = webhook
         return webhook
 
+    # ---------- Event Listener ----------
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-        if message.guild is None:
-            return
-        if message.webhook_id is not None:
+        if message.author.bot or message.guild is None or message.webhook_id is not None:
             return
 
-        if not await self.is_enabled(message.author.id, message.guild.id):
+        user_id = message.author.id
+        guild_id = message.guild.id
+
+        # Check both modes
+        bat_on = await self.is_enabled(user_id, guild_id, "bat")
+        uwu_on = await self.is_enabled(user_id, guild_id, "uwu")
+        if not bat_on and not uwu_on:
+            return
+
+        # Start with original content
+        altered_text = message.content
+
+        # Apply bat if enabled
+        if bat_on:
+            altered_text = self.add_bat_chitters(altered_text)
+
+        # Apply uwu if enabled (order doesn't matter much)
+        if uwu_on:
+            altered_text = self.uwuify_text(altered_text)
+
+        # If both are off (shouldn't happen), just skip
+        if altered_text == message.content and not (bat_on or uwu_on):
             return
 
         webhook = await self.get_or_create_webhook(message.channel)
-        altered_text = self.add_bat_chitters(message.content)
 
+        # Delete original
         try:
             await message.delete()
         except (discord.Forbidden, discord.HTTPException):
             pass
 
+        # Send altered message
         await webhook.send(
             content=altered_text,
             username=message.author.display_name,
@@ -135,26 +177,36 @@ class BatCog(commands.Cog):
             allowed_mentions=discord.AllowedMentions.none()
         )
 
+    # ---------- Slash Commands ----------
     @app_commands.command(name="bat", description="Toggle bat chittering on a user's messages")
     @app_commands.describe(user="The user to enable/disable bat chittering for")
     @app_commands.guild_only()
     async def bat(self, interaction: discord.Interaction, user: discord.Member):
-        if user.bot:
-            await interaction.response.send_message("🦇 You can't toggle chittering on a bot!", ephemeral=True)
-            return
-        if user.id == self.bot.user.id:
-            await interaction.response.send_message("🦇 I can't chitter at myself!", ephemeral=True)
+        if user.bot or user.id == self.bot.user.id:
+            await interaction.response.send_message("🦇 That user can't be toggled.", ephemeral=True)
             return
 
-        new_state = await self.toggle_user(user.id, interaction.guild_id)
-
+        new_state = await self.toggle_user(user.id, interaction.guild_id, "bat")
         status = "enabled" if new_state else "disabled"
-        emoji = "🦇" if new_state else "🦗"
-
         await interaction.response.send_message(
-            f"{emoji} Bat chittering **{status}** for {user.mention}.",
+            f"{'🦇' if new_state else '🦗'} Bat chittering **{status}** for {user.mention}.",
+            ephemeral=True
+        )
+
+    @app_commands.command(name="uwuify", description="Uwuify a user's messages")
+    @app_commands.describe(user="The user to enable/disable uwu for")
+    @app_commands.guild_only()
+    async def uwuify(self, interaction: discord.Interaction, user: discord.Member):
+        if user.bot or user.id == self.bot.user.id:
+            await interaction.response.send_message("😤 That user can't be toggled.", ephemeral=True)
+            return
+
+        new_state = await self.toggle_user(user.id, interaction.guild_id, "uwu")
+        status = "enabled" if new_state else "disabled"
+        await interaction.response.send_message(
+            f"{'😊' if new_state else '😶'} Uwuification **{status}** for {user.mention}.",
             ephemeral=True
         )
 
 async def setup(bot):
-    await bot.add_cog(BatCog(bot))
+    await bot.add_cog(BatUwuCog(bot))
