@@ -108,7 +108,7 @@ class BatUwuCog(commands.Cog):
         text = re.sub(r'n([aeiou])', r'ny\1', text)
         text = re.sub(r'N([aeiou])', r'Ny\1', text)
         # Add occasional uwu
-        if random.random() < 0.3:
+        if random.random() < 0.7:
             text += " uwu"
         return text
 
